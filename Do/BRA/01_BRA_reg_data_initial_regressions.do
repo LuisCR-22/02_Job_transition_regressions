@@ -1,10 +1,10 @@
 /*====================================================================
 Project:		Labor Transitions and Poverty/Vulnerability Analysis - Brazil
-Author:			Analysis Team
+Author:			Luis Castellanos (lcastellanosrodr@worldbank.org)
 Team:			Stats Team - World Bank	
 Country:		Brazil
-Creation Date:	2025/01/15
-Modified Date:	2025/01/15
+Creation Date:	2025/11/14
+Modified Date:	2025/11/14
 
 ====================================================================
 PURPOSE: 
@@ -80,6 +80,7 @@ sort idp_i ano
 cap drop has_2022 has_2023
 by idp_i: egen has_2022 = max(ano == 2022)
 by idp_i: egen has_2023 = max(ano == 2023)
+gen period=ano
 
 * Identify households in the transition period
 gen in_transition = (has_2022 == 1 & has_2023 == 1)  // 2022-2023 transition
@@ -294,7 +295,8 @@ gen country = "BRA"
 qui tab hh_head_education if !missing(hh_head_education), gen(educ_)
 
 * Create sector dummies (for dataset saving)
-qui tab sector_t0 if !missing(sector_t0), gen(sector_)
+qui tab sector_t0 if !missing(sector_t0), gen(sector_t0_)
+qui tab sector_t1 if !missing(sector_t1), gen(sector_t1_)
 
 **# ==============================================================================
 **# 7. SAVE DATASET
