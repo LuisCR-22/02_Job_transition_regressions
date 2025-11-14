@@ -1,19 +1,19 @@
 /*====================================================================
-Project:		Labor Transitions and Poverty/Vulnerability Analysis - Peru
+Project:		Labor Transitions and Poverty/Vulnerability Analysis - Brazil
 Author:			Analysis Team
 Team:			Stats Team - World Bank	
-Country:		Peru
+Country:		Brazil
 Creation Date:	2025/01/15
 Modified Date:	2025/01/15
 
 ====================================================================
 PURPOSE: 
 This code creates a regression-ready dataset for analyzing household labor 
-transitions and their relationship to poverty/vulnerability outcomes in Peru.
+transitions and their relationship to poverty/vulnerability outcomes in Brazil.
 
 METHODOLOGY:
-1. Takes panel data with households observed in both periods
-2. Creates baseline (t0) and endline (t1) measures for:
+1. Takes panel data (2022-2023) with households observed in both periods
+2. Creates baseline (t0=2022) and endline (t1=2023) measures for:
    - Socioeconomic status (poverty, vulnerability, income)
    - Labor market status (employment, skill level, sector)
 3. Constructs transition variables (fell into poverty, escaped poverty, 
@@ -26,8 +26,6 @@ METHODOLOGY:
 OUTPUT:
 - One observation per household head with complete t0/t1 transition history
 - Four regression outputs: falling/escaping poverty/vulnerability
-
-NOTE: Modified to match Brazil code structure for pooled analysis compatibility
 *=================================================================*/
 
 clear all
@@ -38,9 +36,9 @@ set more off
 **# ==============================================================================
 
 * Define macros for flexible path management
-global input_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Data\Peru"
-global dataset_name "01_Enaho_SEDLAC_Panel_2019_2023.dta"
-global output_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Output\PER\Regressions Brief"
+global input_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Data\Brazil"
+global dataset_name "09_BRA_PNAD_Harmonized_2022-2023.dta"
+global output_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Output\BRA\Regressions Brief"
 global save_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Data"
 
 * Create output directory if it doesn't exist
@@ -52,12 +50,12 @@ global poverty_line_monthly_2021ppp = 8.30*(365/12)
 global vul_line_monthly = 17.0*(365/12)
 
 * Set period parameters for single period analysis
-local period_t0 2019
-local period_t1 2020
-local period_desc "2019-2020"
+local period_t0 2022
+local period_t1 2023
+local period_desc "2022-2023"
 
 noi di ""
-noi di "=== LABOR TRANSITIONS ANALYSIS: PERU 2019-2020 ==="
+noi di "=== LABOR TRANSITIONS ANALYSIS: BRAZIL 2022-2023 ==="
 noi di "Dataset: $input_path/$dataset_name"
 noi di "Output: $output_path"
 noi di ""
@@ -71,27 +69,27 @@ use "$input_path/$dataset_name", clear
 
 * Step 0: CREATE PARTNER INDICATORS BEFORE FILTERING
 * Create partner presence indicators at household level for each year
-bysort idp_h: egen has_partner_2019 = max((relacion == 2) * (ano == 2019)) if !missing(relacion)
-bysort idp_h: egen has_partner_2020 = max((relacion == 2) * (ano == 2020)) if !missing(relacion)
+bysort idp_h: egen has_partner_2022 = max((relacion == 2) * (ano == 2022)) if !missing(relacion)
+bysort idp_h: egen has_partner_2023 = max((relacion == 2) * (ano == 2023)) if !missing(relacion)
 
 * Step 1: Keep only household heads and identify those present in transition period
 keep if jefe == 1
 sort idp_i ano
 
 * Create indicators for presence in each year
-cap drop has_2019 has_2020
-by idp_i: egen has_2019 = max(ano == 2019)
-by idp_i: egen has_2020 = max(ano == 2020)
+cap drop has_2022 has_2023
+by idp_i: egen has_2022 = max(ano == 2022)
+by idp_i: egen has_2023 = max(ano == 2023)
 
 * Identify households in the transition period
-gen in_transition = (has_2019 == 1 & has_2020 == 1)  // 2019-2020 transition
+gen in_transition = (has_2022 == 1 & has_2023 == 1)  // 2022-2023 transition
 
 * Keep households present in the transition period
 keep if in_transition == 1
 keep if cohp == 1 & cohh == 1
 
 * Keep only years needed for analysis
-keep if inlist(ano, 2019, 2020)
+keep if inlist(ano, 2022, 2023)
 
 * Filter to household heads with age > 15
 keep if edad > 15
@@ -159,7 +157,7 @@ program define create_transition_vars
     gen vuln_`t0' = (ipcf_ppp21 <= $vul_line_monthly) if ano == `t0' & !missing(ipcf_ppp21)
     gen vuln_`t1' = (ipcf_ppp21 <= $vul_line_monthly) if ano == `t1' & !missing(ipcf_ppp21)
     
-    * NEW: Create income level variables for both periods (ADDED FOR POOLED ANALYSIS)
+    * NEW: Create income level variables for both periods
     gen ipcf_ppp21_`t0' = ipcf_ppp21 if ano == `t0'
     gen ipcf_ppp21_`t1' = ipcf_ppp21 if ano == `t1'
     
@@ -170,7 +168,7 @@ program define create_transition_vars
     by idp_i: egen vuln_t0 = max(vuln_`t0')
     by idp_i: egen vuln_t1 = max(vuln_`t1')
     
-    * NEW: Extend income variables to both years for each individual (ADDED FOR POOLED ANALYSIS)
+    * NEW: Extend income variables to both years for each individual
     by idp_i: egen ipcf_ppp21_t0 = max(ipcf_ppp21_`t0')
     by idp_i: egen ipcf_ppp21_t1 = max(ipcf_ppp21_`t1')
     
@@ -210,7 +208,7 @@ program define create_transition_vars
     gen skill_increased = (employed_t0==1 & employed_t1==1 & skill_level_t1 > skill_level_t0)
     gen skill_decreased = (employed_t0==1 & employed_t1==1 & skill_level_t1 < skill_level_t0)
     
-    * NEW: Same skill transition (remained employed with same skill level) (ADDED FOR POOLED ANALYSIS)
+    * NEW: Same skill transition (remained employed with same skill level)
     gen same_skill = (employed_t0==1 & employed_t1==1 & skill_level_t0 == skill_level_t1 & !missing(skill_level_t0) & !missing(skill_level_t1))
     
     * Create skill level dummies for t0
@@ -278,7 +276,7 @@ end
 noi di ""
 noi di "=== CREATING TRANSITION VARIABLES ==="
 
-* Create transition variables for the single period (2019-2020)
+* Create transition variables for the single period (2022-2023)
 create_transition_vars `period_t0' `period_t1'
 create_control_vars `period_t0' `period_t1'
 
@@ -290,7 +288,7 @@ noi di "Final analysis sample:"
 count
 
 * Add country identifier
-gen country = "PER"
+gen country = "BRA"
 
 * Create dummy variables for categorical controls
 qui tab hh_head_education if !missing(hh_head_education), gen(educ_)
@@ -305,15 +303,15 @@ qui tab sector_t0 if !missing(sector_t0), gen(sector_)
 noi di ""
 noi di "=== SAVING DATASET ==="
 
-save "$save_path/02_PER_reg_data_2019-2020.dta", replace
+save "$save_path/02_BRA_reg_data_2022-2023.dta", replace
 
-noi di "Dataset saved: $save_path/02_PER_reg_data_2019-2020.dta"
+noi di "Dataset saved: $save_path/02_BRA_reg_data_2022-2023.dta"
 
 **# ==============================================================================
 **# 8. DEFINE CONTROL SETS
 **# ==============================================================================
 
-* Modified control set (same as Brazil - removed marital status, health shock, sector, transfers)
+* Modified control set (same as Peru - removed marital status, health shock, sector, transfers)
 local controls_modified "urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ_2 educ_3 hh_members_t0 hh_children_t0 n_workers_t0"
 
 **# ==============================================================================
@@ -407,13 +405,13 @@ noi di "=== EXPORTING REGRESSION TABLES ==="
 cap estimates table reg01_col1 reg01_col2
 if _rc == 0 {
     estimates restore reg01_col1
-    outreg2 using "$output_path/01_falling_poverty_PER.xls", ///
-        replace excel label title("Falling into Poverty - Peru") ///
+    outreg2 using "$output_path/01_falling_poverty_BRA.xls", ///
+        replace excel label title("Falling into Poverty - Brazil") ///
         addstat(Adjusted R-squared, e(r2_a)) addtext(Regional FE, Yes) ///
         ctitle("With Region FE")
     
     estimates restore reg01_col2
-    outreg2 using "$output_path/01_falling_poverty_PER.xls", ///
+    outreg2 using "$output_path/01_falling_poverty_BRA.xls", ///
         append excel label addstat(Adjusted R-squared, e(r2_a)) ///
         addtext(Regional FE, No) ctitle("Without Region FE")
 }
@@ -422,13 +420,13 @@ if _rc == 0 {
 cap estimates table reg02_col1 reg02_col2
 if _rc == 0 {
     estimates restore reg02_col1
-    outreg2 using "$output_path/02_escaping_poverty_PER.xls", ///
-        replace excel label title("Escaping Poverty - Peru") ///
+    outreg2 using "$output_path/02_escaping_poverty_BRA.xls", ///
+        replace excel label title("Escaping Poverty - Brazil") ///
         addstat(Adjusted R-squared, e(r2_a)) addtext(Regional FE, Yes) ///
         ctitle("With Region FE")
     
     estimates restore reg02_col2
-    outreg2 using "$output_path/02_escaping_poverty_PER.xls", ///
+    outreg2 using "$output_path/02_escaping_poverty_BRA.xls", ///
         append excel label addstat(Adjusted R-squared, e(r2_a)) ///
         addtext(Regional FE, No) ctitle("Without Region FE")
 }
@@ -437,13 +435,13 @@ if _rc == 0 {
 cap estimates table reg03_col1 reg03_col2
 if _rc == 0 {
     estimates restore reg03_col1
-    outreg2 using "$output_path/03_falling_vulnerability_PER.xls", ///
-        replace excel label title("Falling into Vulnerability - Peru") ///
+    outreg2 using "$output_path/03_falling_vulnerability_BRA.xls", ///
+        replace excel label title("Falling into Vulnerability - Brazil") ///
         addstat(Adjusted R-squared, e(r2_a)) addtext(Regional FE, Yes) ///
         ctitle("With Region FE")
     
     estimates restore reg03_col2
-    outreg2 using "$output_path/03_falling_vulnerability_PER.xls", ///
+    outreg2 using "$output_path/03_falling_vulnerability_BRA.xls", ///
         append excel label addstat(Adjusted R-squared, e(r2_a)) ///
         addtext(Regional FE, No) ctitle("Without Region FE")
 }
@@ -452,13 +450,13 @@ if _rc == 0 {
 cap estimates table reg04_col1 reg04_col2
 if _rc == 0 {
     estimates restore reg04_col1
-    outreg2 using "$output_path/04_escaping_vulnerability_PER.xls", ///
-        replace excel label title("Escaping Vulnerability - Peru") ///
+    outreg2 using "$output_path/04_escaping_vulnerability_BRA.xls", ///
+        replace excel label title("Escaping Vulnerability - Brazil") ///
         addstat(Adjusted R-squared, e(r2_a)) addtext(Regional FE, Yes) ///
         ctitle("With Region FE")
     
     estimates restore reg04_col2
-    outreg2 using "$output_path/04_escaping_vulnerability_PER.xls", ///
+    outreg2 using "$output_path/04_escaping_vulnerability_BRA.xls", ///
         append excel label addstat(Adjusted R-squared, e(r2_a)) ///
         addtext(Regional FE, No) ctitle("Without Region FE")
 }
@@ -471,15 +469,15 @@ noi di ""
 noi di "=== ANALYSIS COMPLETED ==="
 noi di ""
 noi di "SPECIFICATIONS APPLIED:"
-noi di "  - Single period analysis: 2019-2020"
+noi di "  - Single period analysis: 2022-2023"
 noi di "  - Partner controls based on relacion==2"
-noi di "  - Same modified control set as Brazil"
+noi di "  - Same modified control set as Peru"
 noi di "  - Vulnerability analysis (17.0 USD/day threshold)"
 noi di "  - Two-column format: With/Without region FE"
 noi di ""
-noi di "NEW VARIABLES ADDED FOR POOLED ANALYSIS COMPATIBILITY:"
-noi di "  - ipcf_ppp21_t0: Per capita income at baseline (2019)"
-noi di "  - ipcf_ppp21_t1: Per capita income at endline (2020)"
+noi di "NEW VARIABLES ADDED:"
+noi di "  - ipcf_ppp21_t0: Per capita income at baseline (2022)"
+noi di "  - ipcf_ppp21_t1: Per capita income at endline (2023)"
 noi di "  - same_skill: Remained employed with same skill level"
 noi di ""
 noi di "BASELINE/ENDLINE STATUS VARIABLES PRESERVED:"
@@ -490,11 +488,11 @@ noi di "  - skill_level_t0, skill_level_t1: Skill levels at t0 and t1"
 noi di "  - sector_t0, sector_t1: Sector at t0 and t1"
 noi di ""
 noi di "OUTPUTS GENERATED:"
-noi di "  01_falling_poverty_PER.xls"
-noi di "  02_escaping_poverty_PER.xls" 
-noi di "  03_falling_vulnerability_PER.xls"
-noi di "  04_escaping_vulnerability_PER.xls"
+noi di "  01_falling_poverty_BRA.xls"
+noi di "  02_escaping_poverty_BRA.xls" 
+noi di "  03_falling_vulnerability_BRA.xls"
+noi di "  04_escaping_vulnerability_BRA.xls"
 noi di ""
 noi di "DATASET SAVED:"
-noi di "  02_PER_reg_data_2019-2020.dta"
+noi di "  02_BRA_reg_data_2022-2023.dta"
 noi di ""
