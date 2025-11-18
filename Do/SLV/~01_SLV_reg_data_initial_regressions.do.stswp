@@ -96,31 +96,93 @@ bysort idp_i: egen has_2022 = max(ano == 2022)
 bysort idp_i: egen has_2023 = max(ano == 2023)
 
 * Identify households in each potential transition period
-gen in_period1 = (has_2021 == 1 & has_2022 == 1)  // 2021-2022 transition
-gen in_period2 = (has_2022 == 1 & has_2023 == 1)  // 2022-2023 transition
+* Use the diagnostic panel indicators directly
+cap drop in_period1 in_period2
+gen in_period1 = (ipanel_2122 == 1)  // ✓ Use diagnostic indicator
+gen in_period2 = (ipanel_2223 == 1)  // ✓ Use diagnostic indicator
 
 * Filter to household heads with age > 15
 keep if edad > 15
 
 **# ==============================================================================
-**# 2. CHECK VIABILITY OF 2021-2022 PANEL
+**# 2. CHECK VIABILITY OF 2021-2022 PANEL (USING DIAGNOSTIC PANEL INDICATORS)
 **# ==============================================================================
 
 noi di ""
 noi di "=== CHECKING PANEL VIABILITY ==="
 noi di ""
 
+* CRITICAL: Use panel indicators created in diagnostic file
+* ipanel_2122 = 1 if individual appears in BOTH 2021 AND 2022
+* ipanel_2223 = 1 if individual appears in BOTH 2022 AND 2023
+
+* Verify panel indicators exist
+cap confirm variable ipanel_2122
+if _rc {
+    noi di "ERROR: ipanel_2122 variable not found!"
+    noi di "This variable should have been created by the diagnostic code."
+    noi di "Please run the diagnostic code (04_SLV_SEDLAC_diag.do) first."
+    exit 111
+}
+
+cap confirm variable ipanel_2223
+if _rc {
+    noi di "ERROR: ipanel_2223 variable not found!"
+    noi di "This variable should have been created by the diagnostic code."
+    noi di "Please run the diagnostic code (04_SLV_SEDLAC_diag.do) first."
+    exit 111
+}
+
+* Use the diagnostic panel indicators directly
+cap drop in_period1 in_period2
+gen in_period1 = (ipanel_2122 == 1)  // ✓ Use diagnostic indicator
+gen in_period2 = (ipanel_2223 == 1)  // ✓ Use diagnostic indicator
+
 * Count observations in 2021-2022 panel
 count if in_period1 == 1 & ano == 2021
 local period1_count = r(N)
 
 noi di "2021-2022 panel size: `period1_count' household heads"
+noi di "  (Using ipanel_2122 indicator from diagnostic code)"
 
 * Count observations in 2022-2023 panel
 count if in_period2 == 1 & ano == 2022
 local period2_count = r(N)
 
 noi di "2022-2023 panel size: `period2_count' household heads"
+noi di "  (Using ipanel_2223 indicator from diagnostic code)"
+noi di ""
+
+* Verify panel structure for diagnostics
+noi di "=== PANEL STRUCTURE VERIFICATION ==="
+
+* Check 2021-2022 panel
+if `period1_count' > 0 {
+    bysort idp_i: gen obs_2122 = _N if in_period1 == 1 & inlist(ano, 2021, 2022)
+    qui sum obs_2122 if in_period1 == 1
+    noi di "2021-2022 panel: min=" r(min) " max=" r(max) " obs per person"
+    if r(max) > 2 {
+        noi di "  WARNING: Some individuals have >2 observations in 2021-2022 panel!"
+    }
+    else {
+        noi di "  ✓ Panel structure correct (2 obs per person)"
+    }
+    drop obs_2122
+}
+
+* Check 2022-2023 panel
+if `period2_count' > 0 {
+    bysort idp_i: gen obs_2223 = _N if in_period2 == 1 & inlist(ano, 2022, 2023)
+    qui sum obs_2223 if in_period2 == 1
+    noi di "2022-2023 panel: min=" r(min) " max=" r(max) " obs per person"
+    if r(max) > 2 {
+        noi di "  WARNING: Some individuals have >2 observations in 2022-2023 panel!"
+    }
+    else {
+        noi di "  ✓ Panel structure correct (2 obs per person)"
+    }
+    drop obs_2223
+}
 noi di ""
 
 * Determine analysis strategy based on 2021-2022 panel size
@@ -150,11 +212,16 @@ noi di ""
 * Keep households present in at least one viable transition period
 if `use_pooled' == 1 {
     keep if in_period1 == 1 | in_period2 == 1
+    noi di "Keeping observations with ipanel_2122==1 OR ipanel_2223==1"
 }
 else {
     keep if in_period2 == 1
     keep if inlist(ano, 2022, 2023)
+    noi di "Keeping observations with ipanel_2223==1 only"
 }
+
+noi di "Observations after panel restriction: " _N
+noi di ""
 
 **# ==============================================================================
 **# 3. EMPLOYMENT STATUS AND SKILL LEVEL CREATION
@@ -431,7 +498,7 @@ noi di ""
 **# ==============================================================================
 
 * Modified control set (same as Peru/Brazil/Argentina)
-local controls_modified "urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ_2 educ_3 hh_members_t0 hh_children_t0 n_workers_t0"
+local controls_modified "urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 hh_members_t0 hh_children_t0 n_workers_t0"
 
 **# ==============================================================================
 **# 11. REGRESSION ANALYSIS 1: FALLING INTO POVERTY

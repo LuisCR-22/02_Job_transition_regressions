@@ -44,10 +44,10 @@ noi di "=== LOADING AND COMBINING COUNTRY DATASETS (OPTIMIZED) ==="
 * Define countries, file numbers, and corresponding periods
 local countries "PER BRA ARG DOM SLV"
 local file_numbers "01 02 03 04 05"
-local periods "2021-2023 2022-2023 2021-2023 2021-2023 2021-2023"
+local periods "2021-2023 2022-2023 2021-2023 2021-2023 2022-2023"
 
 * Define variables to keep (all necessary for analysis)
-local keep_vars "id* period ano region_est1_t0 pondera same_skill entered_job exited_job skill_increased skill_decreased poor_t0 vuln_t0 fell_into_poverty escaped_poverty fell_into_vulnerability escaped_vulnerability urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ_2 educ_3 hh_members_t0 hh_children_t0 n_workers_t0 skill_level_2_t0 skill_level_3_t0"
+local keep_vars "id* peri* ano region_est1_t0 pondera same_skill entered_job exited_job skill_increased skill_decreased poor_t0 vuln_t0 fell_into_poverty escaped_poverty fell_into_vulnerability escaped_vulnerability urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ* hh_members_t0 hh_children_t0 n_workers_t0 skill_level_2_t0 skill_level_3_t0"
 
 tempfile combined_data
 
@@ -138,6 +138,33 @@ noi di ""
 noi di "=== COMBINED DATASET SUMMARY ==="
 noi di "Total observations: " _N
 tab country, missing
+
+**# ==============================================================================
+**# 1B. VERIFY PANEL STRUCTURE (ESPECIALLY FOR SLV)
+**# ==============================================================================
+
+noi di ""
+noi di "=== VERIFYING PANEL STRUCTURE BY COUNTRY ==="
+
+foreach c in PER BRA ARG DOM SLV {
+    noi di ""
+    noi di "Country: `c'"
+    
+    * Check observations per individual
+    bysort country idp_i: gen obs_check = _N if country == "`c'"
+    qui sum obs_check if country == "`c'"
+    noi di "  - Observations per individual: min=" r(min) " max=" r(max) " mean=" r(mean)
+    
+    * Count unique individuals
+    bysort country idp_i: gen first_ind = (_n == 1) if country == "`c'"
+    count if first_ind == 1 & country == "`c'"
+    noi di "  - Unique individuals: " r(N)
+    
+    drop obs_check first_ind
+}
+
+noi di ""
+noi di "If SLV shows max observations per individual > 1, the panel was not properly restricted!"
 
 **# ==============================================================================
 **# 2. CREATE POOLED VARIABLES AND WEIGHTS
@@ -240,6 +267,20 @@ count if vuln_t0 == 0 & !missing(fell_into_vulnerability)
 noi di "Fell into vulnerability (vuln_t0==0): " r(N)
 count if vuln_t0 == 1 & poor_t0 == 0 & !missing(escaped_vulnerability)
 noi di "Escaped vulnerability (vuln_t0==1 & poor_t0==0): " r(N)
+
+**# ==============================================================================
+**# 2C. CREATE SLV-SPECIFIC CONTROL ADJUSTMENTS
+**# ==============================================================================
+
+noi di ""
+noi di "=== ADJUSTING CONTROLS FOR SLV (NO EDUCATION DATA) ==="
+
+* Create SLV-adjusted education variables
+* For SLV: set to 0 (or missing) since education data not available
+* For other countries: keep original values
+
+replace educ_2 = 0 if country == "SLV"
+replace educ_3 = 0 if country == "SLV"
 
 **# ==============================================================================
 **# 3. DEFINE REGRESSION SPECIFICATIONS
