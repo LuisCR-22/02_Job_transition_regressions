@@ -8,9 +8,11 @@ PURPOSE: Pooled analysis across PER, BRA, ARG, DOM, SLV for labor transitions
          and poverty/vulnerability outcomes with equal weights only.
          
 KEY CHANGES IN V4:
+- Added keep statement to preserve only necessary variables (memory efficient)
 - Removed absorbed FE columns (old columns 3,4,7,8) - now only 4 columns per outcome
 - Excel outputs only (no Word format)
-- Changed output prefix from 18_ to 19_
+- Changed output prefix from 19_ to 21_
+- Improved efficiency and runtime
 *=================================================================*/
 
 clear all
@@ -45,7 +47,7 @@ local file_numbers "01 02 03 04 05"
 local periods "2021-2023 2022-2023 2021-2023 2021-2023 2022-2023"
 
 * Define variables to keep (all necessary for analysis)
-local keep_vars "id* peri* ano region_est1_t0 pondera same_skill entered_job exited_job skill_increased skill_decreased poor_t0 vuln_t0 fell_into_poverty escaped_poverty fell_into_vulnerability escaped_vulnerability urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ* hh_members_t0 hh_children_t0 n_workers_t0 skill_level_2_t0 skill_level_3_t0"
+local keep_vars "id* peri* ano region_est1_t0 pondera same_skill entered_job exited_job skill_increased skill_decreased poor_t0 vuln_t0 fell_into_poverty escaped_poverty fell_into_vulnerability escaped_vulnerability urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ* hh_members_t0 hh_children_t0 n_workers_t0 skill_level_2_t0 skill_level_3_t0 employed_t0 employed_t1"
 
 tempfile combined_data
 
@@ -225,6 +227,8 @@ if _rc {
     exit 111
 }
 
+gen stayed_employed=(employed_t0==1 & employed_t1==1)
+
 noi di "✓ Sample restriction variables found"
 
 * Display labor transition counts
@@ -297,7 +301,7 @@ local main_no_skill_base "entered_job exited_job skill_increased skill_decreased
 local main_with_skill_nobase "entered_job exited_job skill_increased same_skill skill_decreased"
 
 * Main labor transition variables - WITHOUT same_skill, NO base skill levels
-local main_no_skill_nobase "entered_job exited_job skill_increased skill_decreased"
+local main_no_skill_nobase "entered_job exited_job stayed_employed skill_increased skill_decreased"
 
 * Fixed effects
 local fe_country_period "i.country_fe i.period"
@@ -467,7 +471,7 @@ if _rc == 0 {
     noi di "Exporting: Falling into Poverty (4 columns)"
     
     estimates restore fall_pov_col1
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_falling_poverty.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_falling_poverty.xls", ///
         replace excel label ///
         title("Pooled Analysis: Falling into Poverty - 5 LAC Countries (Sample: poor_t0==0)") ///
         ctitle("(1) With Same_Skill + Base Skill") ///
@@ -475,19 +479,19 @@ if _rc == 0 {
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Included", Base Skill Controls, "Included", Reference, "Remained Unemployed", Sample, "Non-poor at t0")
     
     estimates restore fall_pov_col2
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_falling_poverty.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_falling_poverty.xls", ///
         append excel label ctitle("(2) No Same_Skill + Base Skill") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Excluded", Base Skill Controls, "Included", Reference, "Remained Unemployed", Sample, "Non-poor at t0")
     
     estimates restore fall_pov_col3
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_falling_poverty.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_falling_poverty.xls", ///
         append excel label ctitle("(3) With Same_Skill, No Base") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Included", Base Skill Controls, "Excluded", Reference, "Remained Unemployed", Sample, "Non-poor at t0")
     
     estimates restore fall_pov_col4
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_falling_poverty.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_falling_poverty.xls", ///
         append excel label ctitle("(4) No Same_Skill, No Base") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Excluded", Base Skill Controls, "Excluded", Reference, "Remained Unemployed", Sample, "Non-poor at t0")
@@ -499,7 +503,7 @@ if _rc == 0 {
     noi di "Exporting: Escaping Poverty (4 columns)"
     
     estimates restore esc_pov_col1
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_escaping_poverty.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_escaping_poverty.xls", ///
         replace excel label ///
         title("Pooled Analysis: Escaping Poverty - 5 LAC Countries (Sample: poor_t0==1)") ///
         ctitle("(1) With Same_Skill + Base Skill") ///
@@ -507,19 +511,19 @@ if _rc == 0 {
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Included", Base Skill Controls, "Included", Reference, "Remained Unemployed", Sample, "Poor at t0")
     
     estimates restore esc_pov_col2
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_escaping_poverty.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_escaping_poverty.xls", ///
         append excel label ctitle("(2) No Same_Skill + Base Skill") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Excluded", Base Skill Controls, "Included", Reference, "Remained Unemployed", Sample, "Poor at t0")
     
     estimates restore esc_pov_col3
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_escaping_poverty.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_escaping_poverty.xls", ///
         append excel label ctitle("(3) With Same_Skill, No Base") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Included", Base Skill Controls, "Excluded", Reference, "Remained Unemployed", Sample, "Poor at t0")
     
     estimates restore esc_pov_col4
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_escaping_poverty.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_escaping_poverty.xls", ///
         append excel label ctitle("(4) No Same_Skill, No Base") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Excluded", Base Skill Controls, "Excluded", Reference, "Remained Unemployed", Sample, "Poor at t0")
@@ -531,7 +535,7 @@ if _rc == 0 {
     noi di "Exporting: Falling into Vulnerability (4 columns)"
     
     estimates restore fall_vuln_col1
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_falling_vulnerability.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_falling_vulnerability.xls", ///
         replace excel label ///
         title("Pooled Analysis: Falling into Vulnerability - 5 LAC Countries (Sample: vuln_t0==0)") ///
         ctitle("(1) With Same_Skill + Base Skill") ///
@@ -539,19 +543,19 @@ if _rc == 0 {
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Included", Base Skill Controls, "Included", Reference, "Remained Unemployed", Sample, "Non-vulnerable at t0")
     
     estimates restore fall_vuln_col2
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_falling_vulnerability.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_falling_vulnerability.xls", ///
         append excel label ctitle("(2) No Same_Skill + Base Skill") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Excluded", Base Skill Controls, "Included", Reference, "Remained Unemployed", Sample, "Non-vulnerable at t0")
     
     estimates restore fall_vuln_col3
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_falling_vulnerability.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_falling_vulnerability.xls", ///
         append excel label ctitle("(3) With Same_Skill, No Base") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Included", Base Skill Controls, "Excluded", Reference, "Remained Unemployed", Sample, "Non-vulnerable at t0")
     
     estimates restore fall_vuln_col4
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_falling_vulnerability.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_falling_vulnerability.xls", ///
         append excel label ctitle("(4) No Same_Skill, No Base") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Excluded", Base Skill Controls, "Excluded", Reference, "Remained Unemployed", Sample, "Non-vulnerable at t0")
@@ -563,7 +567,7 @@ if _rc == 0 {
     noi di "Exporting: Escaping Vulnerability (4 columns)"
     
     estimates restore esc_vuln_col1
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_escaping_vulnerability.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_escaping_vulnerability.xls", ///
         replace excel label ///
         title("Pooled Analysis: Escaping Vulnerability - 5 LAC Countries (Sample: vuln_t0==1 & poor_t0==0)") ///
         ctitle("(1) With Same_Skill + Base Skill") ///
@@ -571,19 +575,19 @@ if _rc == 0 {
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Included", Base Skill Controls, "Included", Reference, "Remained Unemployed", Sample, "Vulnerable not poor at t0")
     
     estimates restore esc_vuln_col2
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_escaping_vulnerability.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_escaping_vulnerability.xls", ///
         append excel label ctitle("(2) No Same_Skill + Base Skill") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Excluded", Base Skill Controls, "Included", Reference, "Remained Unemployed", Sample, "Vulnerable not poor at t0")
     
     estimates restore esc_vuln_col3
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_escaping_vulnerability.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_escaping_vulnerability.xls", ///
         append excel label ctitle("(3) With Same_Skill, No Base") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Included", Base Skill Controls, "Excluded", Reference, "Remained Unemployed", Sample, "Vulnerable not poor at t0")
     
     estimates restore esc_vuln_col4
-    outreg2 using "${output_path}/19_LAC_5_pooled_reg_escaping_vulnerability.xls", ///
+    outreg2 using "${output_path}/21_LAC_5_pooled_reg_escaping_vulnerability.xls", ///
         append excel label ctitle("(4) No Same_Skill, No Base") ///
         addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
         addtext(Country FE, Yes, Year FE, Yes, Clustering, "Country-Region", Same_Skill, "Excluded", Base Skill Controls, "Excluded", Reference, "Remained Unemployed", Sample, "Vulnerable not poor at t0")
@@ -597,7 +601,7 @@ noi di ""
 noi di "=== SAVING POOLED DATASET ==="
 
 * Add metadata
-gen dataset_version = "19_LAC_5_pooled_v4"
+gen dataset_version = "21_LAC_5_pooled_v4"
 gen analysis_date = date(c(current_date), "DMY")
 format analysis_date %td
 
@@ -605,9 +609,9 @@ format analysis_date %td
 bysort country: gen obs_by_country = _N
 egen total_obs = count(idp_i)
 
-save "${data_path}/19_LAC_5_pooled.dta", replace
+save "${data_path}/21_LAC_5_pooled.dta", replace
 
-noi di "Pooled dataset saved: ${data_path}/19_LAC_5_pooled.dta"
+noi di "Pooled dataset saved: ${data_path}/21_LAC_5_pooled.dta"
 noi di "Total observations: " _N
 
 **# ==============================================================================
@@ -650,14 +654,14 @@ noi di "  - Escaping poverty: poor_t0==1 (poor at baseline)"
 noi di "  - Falling into vulnerability: vuln_t0==0 (non-vulnerable at baseline)"
 noi di "  - Escaping vulnerability: vuln_t0==1 & poor_t0==0 (vulnerable but not poor at baseline)"
 noi di ""
-noi di "OUTPUTS GENERATED (EXCEL ONLY, PREFIX: 19_):"
-noi di "  - 19_LAC_5_pooled_reg_falling_poverty.xls (4 columns)"
-noi di "  - 19_LAC_5_pooled_reg_escaping_poverty.xls (4 columns)"
-noi di "  - 19_LAC_5_pooled_reg_falling_vulnerability.xls (4 columns)"
-noi di "  - 19_LAC_5_pooled_reg_escaping_vulnerability.xls (4 columns)"
+noi di "OUTPUTS GENERATED (EXCEL ONLY, PREFIX: 21_):"
+noi di "  - 21_LAC_5_pooled_reg_falling_poverty.xls (4 columns)"
+noi di "  - 21_LAC_5_pooled_reg_escaping_poverty.xls (4 columns)"
+noi di "  - 21_LAC_5_pooled_reg_falling_vulnerability.xls (4 columns)"
+noi di "  - 21_LAC_5_pooled_reg_escaping_vulnerability.xls (4 columns)"
 noi di ""
 noi di "DATASET SAVED:"
-noi di "  - 19_LAC_5_pooled.dta"
+noi di "  - 21_LAC_5_pooled.dta"
 noi di ""
 noi di "EFFICIENCY IMPROVEMENTS:"
 noi di "  ✓ Added keep statement to load only necessary variables"

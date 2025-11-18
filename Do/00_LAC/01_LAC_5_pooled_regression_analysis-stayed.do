@@ -19,7 +19,7 @@ IMPORTANT MULTICOLLINEARITY NOTES:
 - Columns 1 and 2 include variables that sum to stayed_employed, creating
   near-perfect multicollinearity. This is intentional for robustness checks.
 - See detailed explanations in comments before each regression section.
-=================================================================/
+================================================================= */
 
 clear all
 set more off
@@ -54,7 +54,7 @@ local periods "2021-2023 2022-2023 2021-2023 2021-2023 2022-2023"
 
 * Define variables to keep (all necessary for analysis)
 * UPDATED: Added employed_t0 and employed_t1 to keep list
-local keep_vars "id* peri* ano region_est1_t0 pondera same_skill entered_job exited_job skill_increased skill_decreased employed_t0 employed_t1 poor_t0 vuln_t0 fell_into_poverty escaped_poverty fell_into_vulnerability escaped_vulnerability urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ* hh_members_t0 hh_children_t0 n_workers_t0 skill_level_2_t0 skill_level_3_t0"
+local keep_vars "id* peri* ano region_est1_t0 pondera same_skill entered_job exited_job skill_increased skill_decreased employed_t0 employed_t1 poor_t0 vuln_t0 fell_into_poverty escaped_poverty fell_into_vulnerability escaped_vulnerability urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ* hh_members_t0 hh_children_t0 n_workers_t0 skill_level_2_t0 skill_level_3_t0 employed_t0 employed_t1"
 
 tempfile combined_data
 
@@ -64,7 +64,7 @@ forvalues i = 1/5 {
     local period_range : word `i' of `periods'
 
     noi di "Loading `country' data (Period: `period_range')..."
-    use "${data_path}/`file_num'`country'_reg_data`period_range'.dta", clear
+    use "${data_path}/`file_num'_`country'_reg_data_`period_range'.dta", clear
 
     * Keep only necessary variables for efficiency
     keep `keep_vars'
