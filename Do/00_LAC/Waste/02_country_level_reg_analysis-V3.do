@@ -5,10 +5,10 @@ Creation Date:	2025/11/19
 Modified:       2025/11/19
 ====================================================================
 PURPOSE: Country-level analysis for PER, BRA, ARG, DOM, SLV showing labor 
-         transitions and poverty/vulnerability outcomes with significance stars.
+         transitions and poverty/vulnerability outcomes.
          
 OUTPUTS: 
-- Separate Excel file per country (5 files) with 4 outcomes and stars
+- Single Excel file with 5 sheets (one per country), each with 4 outcomes
 - Country-level graph data file with coefficients×100, SE×100, and CI
 *=================================================================*/
 
@@ -87,10 +87,10 @@ foreach country of local countries {
     * Create stayed_employed indicator
     gen stayed_employed = (employed_t0 == 1 & employed_t1 == 1)
     
-    * Create education controls for SLV (no education data available)
+    * Adjust education controls for SLV
     if "`country'" == "SLV" {
         gen educ_2 = 0
-        gen educ_3 = 0
+		gen educ_3 = 0
     }
     
     * Period fixed effects
@@ -126,34 +126,87 @@ foreach country of local countries {
     matrix V4_`country' = e(V)
     
     **# =========================================================================
-    **# 4. EXPORT RESULTS TO SEPARATE FILE PER COUNTRY (WITH STARS)
+    **# 4. EXPORT RESULTS FOR THIS COUNTRY
     **# =========================================================================
     
+    * Create or modify sheet for this country
+    if `c_num' == 1 {
+        putexcel set "${output_path}/24_Country_level_reg.xlsx", sheet("`country_name'") replace
+    }
+    else {
+        putexcel set "${output_path}/24_Country_level_reg.xlsx", sheet("`country_name'") modify
+    }
+    
+    * Headers
+    putexcel A1 = "`country_name' - Labor Transitions Analysis"
+    putexcel A2 = "Variable" B2 = "(1) Into Poverty" C2 = "(2) Out of Poverty" ///
+             D2 = "(3) Out of Middle Class" E2 = "(4) Into Middle Class"
+    
+    * Labor transitions
+    putexcel A3 = "Job Entry"
+    putexcel A5 = "Job Exit"
+    putexcel A7 = "Skill Upgrade"
+    putexcel A9 = "Skill Downgrade"
+    putexcel A11 = "Stayed Employed"
+    
+    local row = 3
+    foreach var of local transitions {
+        forvalues col = 1/4 {
+            matrix b = b`col'_`country'
+            matrix V = V`col'_`country'
+            
+            local pos = colnumb(b, "`var'")
+            if `pos' != . {
+                local coef = b[1, `pos']
+                local se = sqrt(V[`pos', `pos'])
+                local coef_str : di %6.4f `coef'
+                local se_str : di %6.4f `se'
+                
+                local excel_col = char(66 + `col' - 1) // B, C, D, E
+                putexcel `excel_col'`row' = `coef'
+                local row_se = `row' + 1
+                putexcel `excel_col'`row_se' = "(`se_str')"
+            }
+        }
+        local row = `row' + 2
+    }
+    
+    * Add summary statistics
     estimates restore `country'_col1
-    outreg2 using "${output_path}/25_`country'_reg.xls", ///
-        replace excel label ///
-        title("`country_name' - Labor Transitions Analysis") ///
-        ctitle("(1) Into Poverty") ///
-        addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
-        addtext(Year FE, Yes, SE Type, Robust, Reference, "Remained Unemployed", Sample, "Non-poor at t0")
+    local r2_1 : di %5.3f e(r2_a)
+    local n_1 = e(N)
     
     estimates restore `country'_col2
-    outreg2 using "${output_path}/25_`country'_reg.xls", ///
-        append excel label ctitle("(2) Out of Poverty") ///
-        addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
-        addtext(Year FE, Yes, SE Type, Robust, Reference, "Remained Unemployed", Sample, "Poor at t0")
+    local r2_2 : di %5.3f e(r2_a)
+    local n_2 = e(N)
     
     estimates restore `country'_col3
-    outreg2 using "${output_path}/25_`country'_reg.xls", ///
-        append excel label ctitle("(3) Out of Middle Class") ///
-        addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
-        addtext(Year FE, Yes, SE Type, Robust, Reference, "Remained Unemployed", Sample, "Non-vulnerable at t0")
+    local r2_3 : di %5.3f e(r2_a)
+    local n_3 = e(N)
     
     estimates restore `country'_col4
-    outreg2 using "${output_path}/25_`country'_reg.xls", ///
-        append excel label ctitle("(4) Into Middle Class") ///
-        addstat(Adjusted R-squared, e(r2_a), N, e(N)) ///
-        addtext(Year FE, Yes, SE Type, Robust, Reference, "Remained Unemployed", Sample, "Vulnerable not poor at t0")
+    local r2_4 : di %5.3f e(r2_a)
+    local n_4 = e(N)
+    
+    local row = 14
+    putexcel A`row' = "Observations" B`row' = `n_1' C`row' = `n_2' D`row' = `n_3' E`row' = `n_4'
+    
+    local row = 15
+    putexcel A`row' = "Adjusted R-squared" B`row' = "`r2_1'" C`row' = "`r2_2'" D`row' = "`r2_3'" E`row' = "`r2_4'"
+    
+    local row = 16
+    putexcel A`row' = "Year FE" B`row' = "Yes" C`row' = "Yes" D`row' = "Yes" E`row' = "Yes"
+    
+    local row = 17
+    putexcel A`row' = "SE Type" B`row' = "Robust" C`row' = "Robust" D`row' = "Robust" E`row' = "Robust"
+    
+    local row = 18
+    putexcel A`row' = "Reference" B`row' = "Remained Unemployed" C`row' = "Remained Unemployed" ///
+             D`row' = "Remained Unemployed" E`row' = "Remained Unemployed"
+    
+    local row = 19
+    putexcel A`row' = "Sample" B`row' = "Non-poor at t0" C`row' = "Poor at t0" ///
+             D`row' = "Non-vulnerable at t0" E`row' = "Vulnerable not poor at t0"
 }
 
 **# ==============================================================================
@@ -212,10 +265,10 @@ foreach country of local countries {
     
     * Export to Excel for this country
     if `c_num' == 1 {
-        putexcel set "${output_path}/25_Country_level_graph_data.xlsx", sheet("`country_name'") replace
+        putexcel set "${output_path}/24_Country_level_graph_data.xlsx", sheet("`country_name'") replace
     }
     else {
-        putexcel set "${output_path}/25_Country_level_graph_data.xlsx", sheet("`country_name'") modify
+        putexcel set "${output_path}/24_Country_level_graph_data.xlsx", sheet("`country_name'") modify
     }
     
     * Write headers
@@ -284,6 +337,23 @@ foreach country of local countries {
 
 noi di ""
 noi di "=== COUNTRY-LEVEL ANALYSIS COMPLETED ==="
+noi di ""
+noi di "OUTPUTS GENERATED:"
+noi di "  1. ${output_path}/24_Country_level_reg.xlsx"
+noi di "     - 5 sheets (Peru, Brazil, Argentina, Dominican_Republic, El_Salvador)"
+noi di "     - Each sheet has 4 columns: (1) Into Poverty, (2) Out of Poverty,"
+noi di "       (3) Out of Middle Class, (4) Into Middle Class"
+noi di "  2. ${output_path}/24_Country_level_graph_data.xlsx"
+noi di "     - 5 sheets (one per country)"
+noi di "     - Coefficients × 100, SE × 100, and CI for graphs"
+noi di ""
+noi di "SPECIFICATION:"
+noi di "  - Labor transitions: Job entry, Job exit, Skill upgrade, Skill downgrade, Stayed employed"
+noi di "  - Reference category: Remained unemployed at both t0 and t1"
+noi di "  - Weights: pondera (country survey weights)"
+noi di "  - Year fixed effects"
+noi di "  - Robust standard errors"
+noi di "  - Full demographic controls (adjusted for SLV education)"
 noi di ""
 noi di "SAMPLE RESTRICTIONS:"
 noi di "  - Into poverty: Non-poor at baseline (poor_t0==0)"
