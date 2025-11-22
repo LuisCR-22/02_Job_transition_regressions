@@ -40,7 +40,7 @@ set more off
 **# ==============================================================================
 
 * Define macros for flexible path management
-global input_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Data\Salvador"
+global input_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Data\Raw\Salvador"
 global dataset_name "03_SLV_SEDLAC_2018-2023_ALL_OBS.dta"
 global output_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Output\SLV\Regressions Brief"
 global save_path "C:\Users\wb593225\OneDrive - WBG\Desktop\Shared\FY2025\2021PPP\Vulnerability line\Data"
@@ -377,8 +377,10 @@ program define create_control_vars
     * Partner status at t0
     bysort idp_h idp_i: egen partner_t0`suffix' = max(has_partner_`t0')
     
-    * Household head education level at t0
-    bysort idp_h ano: egen hh_head_education`suffix' = max(nivedu * jefe * (ano == `t0')) if !missing(nivedu) & !missing(jefe)
+	* Household head education level at t0
+	gen temp_edu_`t0'`suffix' = nivedu if ano == `t0' & !missing(nivedu)
+	bysort idp_i: egen hh_head_education`suffix' = max(temp_edu_`t0'`suffix')
+	drop temp_edu_`t0'`suffix'
     
     * Health shock (for dataset saving, but won't use in regression)
     bysort idp_h: egen hh_head_health_shock`suffix' = max(enfermo * (ano == `t0')) if !missing(enfermo)
@@ -498,7 +500,7 @@ noi di ""
 **# ==============================================================================
 
 * Modified control set (same as Peru/Brazil/Argentina)
-local controls_modified "urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 hh_members_t0 hh_children_t0 n_workers_t0"
+local controls_modified "urbano_t0 gedad_25_40 gedad_41_64 gedad_65plus hombre_t0 partner_t0 educ_2 educ_3 hh_members_t0 hh_children_t0 n_workers_t0"
 
 **# ==============================================================================
 **# 11. REGRESSION ANALYSIS 1: FALLING INTO POVERTY
